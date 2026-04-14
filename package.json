@@ -1,0 +1,15 @@
+{
+  "name": "scl",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "clean": "rimraf build/*",
+    "test:configure": "cmake -S . -B build",
+    "test:build": "cmake --build build --config Debug",
+    "test:run": "cd build && ctest -C Debug --output-on-failure",
+    "test-c": "npm run test:configure && npm run test:build && npm run test:run"
+  },
+  "devDependencies": {
+    "rimraf": "^6.1.3"
+  }
+}
