@@ -1,9 +1,4 @@
-/**
- * MemStrategy_test.cpp — unit tests for memory/private/strategy/MemStrategy.c
- *
- * Covers: kMemStrategies table wiring, MEM_STRATEGY macro dispatch,
- *         and all four strategy rows (Null, Data, Zone, Stack).
- */
+#include <catch2/catch_test_macros.hpp>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -17,7 +12,6 @@
 #include "cLib/memory/allocator/ZoneAllocator.h"
 #include "cLib/memory/allocator/NullAllocator.h"
 #include "cLib/string/cName.h"
-#include "../TestHelpers.h"
 
 static const uint32_t kCapacity = 1024 * 16;
 
@@ -25,73 +19,61 @@ static const uint32_t kCapacity = 1024 * 16;
  * Test_TableWiring
  * Every function pointer in all four rows must be non-null.
  * ========================================================================= */
-void Test_TableWiring()
-{
-  printf("--- Test_TableWiring ---\n");
+TEST_CASE("MemStrategy – Table Wiring", "[MemStrategy]") {
   for (int t = 0; t < 4; ++t) {
-    ASSERT_NOT_NULL((void*)kMemStrategies[t].Init);
-    ASSERT_NOT_NULL((void*)kMemStrategies[t].Clear);
-    ASSERT_NOT_NULL((void*)kMemStrategies[t].Purge);
-    ASSERT_NOT_NULL((void*)kMemStrategies[t].Check);
-    ASSERT_NOT_NULL((void*)kMemStrategies[t].Remap);
-    ASSERT_NOT_NULL((void*)kMemStrategies[t].Save);
-    ASSERT_NOT_NULL((void*)kMemStrategies[t].Load);
-    ASSERT_NOT_NULL((void*)kMemStrategies[t].GetAllocator);
-    ASSERT_NOT_NULL((void*)kMemStrategies[t].GetBlockName);
-    ASSERT_NOT_NULL((void*)kMemStrategies[t].FindBlock);
+    REQUIRE(kMemStrategies[t].Init != nullptr);
+    REQUIRE(kMemStrategies[t].Clear != nullptr);
+    REQUIRE(kMemStrategies[t].Purge != nullptr);
+    REQUIRE(kMemStrategies[t].Check != nullptr);
+    REQUIRE(kMemStrategies[t].Remap != nullptr);
+    REQUIRE(kMemStrategies[t].Save != nullptr);
+    REQUIRE(kMemStrategies[t].Load != nullptr);
+    REQUIRE(kMemStrategies[t].GetAllocator != nullptr);
+    REQUIRE(kMemStrategies[t].GetBlockName != nullptr);
+    REQUIRE(kMemStrategies[t].FindBlock != nullptr);
   }
-  printf("[PASS] Test_TableWiring\n\n");
 }
 
 /* =========================================================================
  * Test_MacroDispatch
  * MEM_STRATEGY(pBlock) must select the row matching pBlock->type.
  * ========================================================================= */
-void Test_MacroDispatch()
-{
-  printf("--- Test_MacroDispatch ---\n");
+TEST_CASE("MemStrategy – Macro Dispatch", "[MemStrategy]") {
   MemBlock_t block = {};
   block.magic = CHECK_SUM;
 
   block.type = TYPE_DATA;
-  ASSERT_EQ((void*)MEM_STRATEGY(&block).Check, (void*)kMemStrategies[TYPE_DATA].Check);
+  REQUIRE((void*)MEM_STRATEGY(&block).Check == (void*)kMemStrategies[TYPE_DATA].Check);
 
   block.type = TYPE_ZONE;
-  ASSERT_EQ((void*)MEM_STRATEGY(&block).Check, (void*)kMemStrategies[TYPE_ZONE].Check);
+  REQUIRE((void*)MEM_STRATEGY(&block).Check == (void*)kMemStrategies[TYPE_ZONE].Check);
 
   block.type = TYPE_STACK;
-  ASSERT_EQ((void*)MEM_STRATEGY(&block).Check, (void*)kMemStrategies[TYPE_STACK].Check);
-
-  printf("[PASS] Test_MacroDispatch\n\n");
+  REQUIRE((void*)MEM_STRATEGY(&block).Check == (void*)kMemStrategies[TYPE_STACK].Check);
 }
 
 /* =========================================================================
  * Test_DataStrategy_Check
  * TYPE_DATA Check always returns true — no sub-structure to validate.
  * ========================================================================= */
-void Test_DataStrategy_Check()
-{
-  printf("--- Test_DataStrategy_Check ---\n");
+TEST_CASE("MemStrategy – Data Strategy Check", "[MemStrategy]") {
   void*      pBuf  = malloc(kCapacity);
   MemZone_t* pZone = Z_Init((MemZone_t*)pBuf, kCapacity, PU_STATIC, "DS_CHK");
 
   void* pData = Z_Malloc(pZone, 256, PU_STATIC, nullptr);
-  ASSERT_NOT_NULL(pData);
+  REQUIRE(pData != nullptr);
   MemBlock_t* pBlock = GetBlockHeader(pData);
-  ASSERT_EQ(pBlock->type, (uint32_t)TYPE_DATA);
-  ASSERT(MEM_STRATEGY(pBlock).Check(pBlock));
+  REQUIRE(pBlock->type == (uint32_t)TYPE_DATA);
+  REQUIRE(MEM_STRATEGY(pBlock).Check(pBlock));
 
   free(pBuf);
-  printf("[PASS] Test_DataStrategy_Check\n\n");
 }
 
 /* =========================================================================
  * Test_DataStrategy_Remap
  * TYPE_DATA Remap is a no-op — must not crash and must not modify the block.
  * ========================================================================= */
-void Test_DataStrategy_Remap()
-{
-  printf("--- Test_DataStrategy_Remap ---\n");
+TEST_CASE("MemStrategy – Data Strategy Remap", "[MemStrategy]") {
   void*      pBuf  = malloc(kCapacity);
   MemZone_t* pZone = Z_Init((MemZone_t*)pBuf, kCapacity, PU_STATIC, "DS_REMAP");
 
@@ -102,20 +84,17 @@ void Test_DataStrategy_Remap()
 
   MEM_STRATEGY(pBlock).Remap(pBlock); // no-op, must not crash
 
-  ASSERT_EQ(pBlock->size, sizeBefore);
-  ASSERT_EQ(pBlock->tag,  tagBefore);
+  REQUIRE(pBlock->size == sizeBefore);
+  REQUIRE(pBlock->tag == tagBefore);
 
   free(pBuf);
-  printf("[PASS] Test_DataStrategy_Remap\n\n");
 }
 
 /* =========================================================================
  * Test_DataStrategy_Purge
  * TYPE_DATA Purge is a no-op — must not crash.
  * ========================================================================= */
-void Test_DataStrategy_Purge()
-{
-  printf("--- Test_DataStrategy_Purge ---\n");
+TEST_CASE("MemStrategy – Data Strategy Purge", "[MemStrategy]") {
   void*      pBuf  = malloc(kCapacity);
   MemZone_t* pZone = Z_Init((MemZone_t*)pBuf, kCapacity, PU_STATIC, "DS_PURGE");
 
@@ -123,10 +102,9 @@ void Test_DataStrategy_Purge()
   MemBlock_t* pBlock = GetBlockHeader(pData);
 
   MEM_STRATEGY(pBlock).Purge(pBlock); // no-op, must not crash
-  ASSERT(pBlock->magic == CHECK_SUM); // block untouched
+  REQUIRE(pBlock->magic == (uint32_t)CHECK_SUM); // block untouched
 
   free(pBuf);
-  printf("[PASS] Test_DataStrategy_Purge\n\n");
 }
 
 /* =========================================================================
@@ -134,31 +112,28 @@ void Test_DataStrategy_Purge()
  * StackStrategy_Init sets up the embedded MemStack_t.
  * StackStrategy_Check returns true for a healthy stack.
  * ========================================================================= */
-void Test_StackStrategy_Init_Check()
-{
-  printf("--- Test_StackStrategy_Init_Check ---\n");
+TEST_CASE("MemStrategy – Stack Strategy Init and Check", "[MemStrategy]") {
   void*      pBuf  = malloc(kCapacity);
   MemZone_t* pZone = Z_Init((MemZone_t*)pBuf, kCapacity, PU_STATIC, "SK_CHK");
 
   const uint32_t kStackTotal = 1024;
   void* pStackMem = Z_Malloc(pZone, kStackTotal, PU_STATIC, nullptr);
-  ASSERT_NOT_NULL(pStackMem);
+  REQUIRE(pStackMem != nullptr);
 
   MemBlock_t* pBlock = GetBlockHeader(pStackMem);
   pBlock->type = TYPE_STACK;
 
   MEM_STRATEGY(pBlock).Init(pBlock, kStackTotal, PU_STATIC, "SUB");
-  ASSERT(MEM_STRATEGY(pBlock).Check(pBlock)); // freshly initialised → valid
+  REQUIRE(MEM_STRATEGY(pBlock).Check(pBlock)); // freshly initialised → valid
 
   // Corrupt used counter so it exceeds capacity.
   MemStack_t* pStack = (MemStack_t*)GetBlockData(pBlock);
   uint32_t saved = pStack->used;
   pStack->used = pStack->capacity + 1;
-  ASSERT(!MEM_STRATEGY(pBlock).Check(pBlock)); // overflow → invalid
+  REQUIRE_FALSE(MEM_STRATEGY(pBlock).Check(pBlock)); // overflow → invalid
 
   pStack->used = saved;
   free(pBuf);
-  printf("[PASS] Test_StackStrategy_Init_Check\n\n");
 }
 
 /* =========================================================================
@@ -167,41 +142,38 @@ void Test_StackStrategy_Init_Check()
  * TYPE_ZONE blocks return the name passed to Init.
  * TYPE_STACK blocks return the name passed to Init.
  * ========================================================================= */
-void Test_GetBlockName()
-{
-  printf("--- Test_GetBlockName ---\n");
+TEST_CASE("MemStrategy – Get Block Name", "[MemStrategy]") {
   void*      pBuf  = malloc(kCapacity);
   MemZone_t* pZone = Z_Init((MemZone_t*)pBuf, kCapacity, PU_STATIC, "ROOT");
 
   // TYPE_DATA block — no name
   void* pData = Z_Malloc(pZone, 128, PU_STATIC, nullptr);
-  ASSERT_NOT_NULL(pData);
+  REQUIRE(pData != nullptr);
   MemBlock_t* pDataBlk = GetBlockHeader(pData);
-  ASSERT_EQ(MEM_STRATEGY(pDataBlk).GetBlockName(pDataBlk), (const char*)nullptr);
+  REQUIRE(MEM_STRATEGY(pDataBlk).GetBlockName(pDataBlk) == nullptr);
 
   // TYPE_ZONE block — returns the sub-zone's name
   MemZone_t* pSub = NULL;
   void* pSubMem = Z_Malloc(pZone, 1024 * 4, PU_STATIC, &pSub);
-  ASSERT_NOT_NULL(pSubMem);
+  REQUIRE(pSubMem != nullptr);
   MemBlock_t* pZoneBlk = GetBlockHeader(pSubMem);
   pZoneBlk->type = TYPE_ZONE;
   MEM_STRATEGY(pZoneBlk).Init(pZoneBlk, 0, PU_STATIC, "SUBZONE");
   const char* zoneName = MEM_STRATEGY(pZoneBlk).GetBlockName(pZoneBlk);
-  ASSERT_NOT_NULL(zoneName);
-  ASSERT_EQ(strcmp(zoneName, "SUBZONE"), 0);
+  REQUIRE(zoneName != nullptr);
+  REQUIRE(strcmp(zoneName, "SUBZONE") == 0);
 
   // TYPE_STACK block — returns the sub-stack's name
   void* pStkMem = Z_Malloc(pZone, 1024 * 2, PU_STATIC, nullptr);
-  ASSERT_NOT_NULL(pStkMem);
+  REQUIRE(pStkMem != nullptr);
   MemBlock_t* pStkBlk = GetBlockHeader(pStkMem);
   pStkBlk->type = TYPE_STACK;
   MEM_STRATEGY(pStkBlk).Init(pStkBlk, 0, PU_STATIC, "MYSTACK");
   const char* stkName = MEM_STRATEGY(pStkBlk).GetBlockName(pStkBlk);
-  ASSERT_NOT_NULL(stkName);
-  ASSERT_EQ(strcmp(stkName, "MYSTACK"), 0);
+  REQUIRE(stkName != nullptr);
+  REQUIRE(strcmp(stkName, "MYSTACK") == 0);
 
   free(pBuf);
-  printf("[PASS] Test_GetBlockName\n\n");
 }
 
 /* =========================================================================
@@ -209,16 +181,14 @@ void Test_GetBlockName()
  * ZoneStrategy_Init must initialise a valid MemZone_t in the block payload.
  * The parent block header (magic, next, prev, ppUser) must be preserved.
  * ========================================================================= */
-void Test_ZoneStrategy_Init()
-{
-  printf("--- Test_ZoneStrategy_Init ---\n");
+TEST_CASE("MemStrategy – Zone Strategy Init", "[MemStrategy]") {
   void*      pBuf    = malloc(kCapacity);
   MemZone_t* pParent = Z_Init((MemZone_t*)pBuf, kCapacity, PU_STATIC, "PAR_INIT");
 
   const uint32_t kSubSize = 1024 * 4;
   MemZone_t* pSub = NULL;
   void* pMem = Z_Malloc(pParent, kSubSize, PU_STATIC, &pSub);
-  ASSERT_NOT_NULL(pMem);
+  REQUIRE(pMem != nullptr);
 
   MemBlock_t* pBlock = GetBlockHeader(pMem);
   uint32_t savedNext = pBlock->next;
@@ -228,45 +198,41 @@ void Test_ZoneStrategy_Init()
   MEM_STRATEGY(pBlock).Init(pBlock, 0, PU_STATIC, "SUBINIT");
 
   /* Parent block header must be intact */
-  ASSERT_EQ(pBlock->magic, (uint32_t)CHECK_SUM);
-  ASSERT_EQ(pBlock->next,  savedNext);
-  ASSERT_EQ(pBlock->prev,  savedPrev);
+  REQUIRE(pBlock->magic == (uint32_t)CHECK_SUM);
+  REQUIRE(pBlock->next == savedNext);
+  REQUIRE(pBlock->prev == savedPrev);
 
   /* Sub-zone at payload must be valid */
   MemZone_t* pZ = (MemZone_t*)GetBlockData(pBlock);
-  ASSERT(Z_Check(pZ));
-  ASSERT(pZ->capacity > 0);
+  REQUIRE(Z_Check(pZ));
+  REQUIRE(pZ->capacity > 0);
 
   free(pBuf);
-  printf("[PASS] Test_ZoneStrategy_Init\n\n");
 }
 
 /* =========================================================================
  * Test_ZoneStrategy_Remap_Check
  * TYPE_ZONE Remap and Check operate on the embedded sub-zone.
  * ========================================================================= */
-void Test_ZoneStrategy_Remap_Check()
-{
-  printf("--- Test_ZoneStrategy_Remap_Check ---\n");
+TEST_CASE("MemStrategy – Zone Strategy Remap and Check", "[MemStrategy]") {
   void*      pBuf    = malloc(kCapacity);
   MemZone_t* pParent = Z_Init((MemZone_t*)pBuf, kCapacity, PU_STATIC, "PAR");
 
   MemZone_t* pSub = NULL;
   void* pMem = Z_Malloc(pParent, 1024 * 4, PU_STATIC, &pSub);
-  ASSERT_NOT_NULL(pMem);
+  REQUIRE(pMem != nullptr);
   MemBlock_t* pBlkParent = GetBlockHeader(pMem);
   pBlkParent->type = TYPE_ZONE;
   MEM_STRATEGY(pBlkParent).Init(pBlkParent, 0, PU_STATIC, "SUB");
-  ASSERT_NOT_NULL(pSub);
+  REQUIRE(pSub != nullptr);
 
   MemBlock_t* pBlk = Z_ZoneAsBlock(pSub);
-  ASSERT_EQ(pBlk->type, (uint32_t)TYPE_ZONE);
+  REQUIRE(pBlk->type == (uint32_t)TYPE_ZONE);
 
-  ASSERT(MEM_STRATEGY(pBlk).Check(pBlk)); // valid sub-zone → true
-  MEM_STRATEGY(pBlk).Remap(pBlk);         // must not crash on a valid zone
+  REQUIRE(MEM_STRATEGY(pBlkParent).Check(pBlkParent)); // valid sub-zone → true
+  MEM_STRATEGY(pBlkParent).Remap(pBlkParent);         // must not crash on a valid zone
 
   free(pBuf);
-  printf("[PASS] Test_ZoneStrategy_Remap_Check\n\n");
 }
 
 /* =========================================================================
@@ -274,30 +240,27 @@ void Test_ZoneStrategy_Remap_Check()
  * GetAllocator on a TYPE_ZONE block returns a wired Allocator_t whose
  * pContext is the embedded MemZone_t.
  * ========================================================================= */
-void Test_ZoneStrategy_GetAllocator()
-{
-  printf("--- Test_ZoneStrategy_GetAllocator ---\n");
+TEST_CASE("MemStrategy – Zone Strategy Get Allocator", "[MemStrategy]") {
   void*      pBuf    = malloc(kCapacity);
   MemZone_t* pParent = Z_Init((MemZone_t*)pBuf, kCapacity, PU_STATIC, "PAR_GA");
 
   MemZone_t* pSub = NULL;
   void* pMemGA = Z_Malloc(pParent, 1024 * 4, PU_STATIC, &pSub);
-  ASSERT_NOT_NULL(pMemGA);
+  REQUIRE(pMemGA != nullptr);
   MemBlock_t* pBlkGA = GetBlockHeader(pMemGA);
   pBlkGA->type = TYPE_ZONE;
   MEM_STRATEGY(pBlkGA).Init(pBlkGA, 0, PU_STATIC, "SUB_GA");
-  ASSERT_NOT_NULL(pSub);
+  REQUIRE(pSub != nullptr);
 
   MemBlock_t* pBlk  = Z_ZoneAsBlock(pSub);
-  Allocator_t alloc = MEM_STRATEGY(pBlk).GetAllocator(pBlk);
-  ASSERT(alloc.pContext == pSub);
-  ASSERT_NOT_NULL((void*)alloc.Malloc);
+  Allocator_t alloc = MEM_STRATEGY(pBlkGA).GetAllocator(pBlkGA);
+  REQUIRE(alloc.pContext == pSub);
+  REQUIRE(alloc.Malloc != nullptr);
 
   Handle_t h = alloc.Malloc(alloc.pContext, 64, nullptr);
-  ASSERT_NOT_NULL(h.pData);
+  REQUIRE(h.pData != nullptr);
 
   free(pBuf);
-  printf("[PASS] Test_ZoneStrategy_GetAllocator\n\n");
 }
 
 /* =========================================================================
@@ -305,105 +268,67 @@ void Test_ZoneStrategy_GetAllocator()
  * GetAllocator on a TYPE_DATA block returns a safe NullObject allocator.
  * Calling Malloc on it must not crash — returns kInvalidHandle.
  * ========================================================================= */
-void Test_DataStrategy_GetAllocator_IsNullObject()
-{
-  printf("--- Test_DataStrategy_GetAllocator_IsNullObject ---\n");
+TEST_CASE("MemStrategy – Data Strategy Get Allocator Is Null Object", "[MemStrategy]") {
   void*      pBuf  = malloc(kCapacity);
   MemZone_t* pZone = Z_Init((MemZone_t*)pBuf, kCapacity, PU_STATIC, "DS_NULL");
 
   void* pData = Z_Malloc(pZone, 64, PU_STATIC, nullptr);
-  ASSERT_NOT_NULL(pData);
+  REQUIRE(pData != nullptr);
   MemBlock_t* pBlock = GetBlockHeader(pData);
-  ASSERT_EQ(pBlock->type, (uint32_t)TYPE_DATA);
+  REQUIRE(pBlock->type == (uint32_t)TYPE_DATA);
 
   Allocator_t alloc = MEM_STRATEGY(pBlock).GetAllocator(pBlock);
   // Must be callable — NullObject, not a crash
   Handle_t h = alloc.Malloc(alloc.pContext, 64, nullptr);
-  ASSERT_EQ(h.id, kINVALID_HANDLE);  // logged warning, returned invalid handle
+  REQUIRE(h.id == kINVALID_HANDLE);  // logged warning, returned invalid handle
 
   free(pBuf);
-  printf("[PASS] Test_DataStrategy_GetAllocator_IsNullObject\n\n");
 }
 
 /* =========================================================================
  * Test_NullStrategy_GetAllocator_IsNullObject
  * GetAllocator on a TYPE_NONE block returns a safe NullObject allocator.
  * ========================================================================= */
-void Test_NullStrategy_GetAllocator_IsNullObject()
-{
-  printf("--- Test_NullStrategy_GetAllocator_IsNullObject ---\n");
+TEST_CASE("MemStrategy – Null Strategy Get Allocator Is Null Object", "[MemStrategy]") {
   MemBlock_t block = {};
   block.magic = CHECK_SUM;
   block.type  = TYPE_NONE;
 
   Allocator_t alloc = MEM_STRATEGY(&block).GetAllocator(&block);
   Handle_t h = alloc.Malloc(alloc.pContext, 32, nullptr);
-  ASSERT_EQ(h.id, kINVALID_HANDLE);
-
-  printf("[PASS] Test_NullStrategy_GetAllocator_IsNullObject\n\n");
+  REQUIRE(h.id == kINVALID_HANDLE);
 }
 
 /* =========================================================================
  * Test_DataStrategy_FindBlock_ReturnsInvalid
  * DataStrategy has no children — FindBlock must return &kInvalidBlock, not NULL.
  * ========================================================================= */
-void Test_DataStrategy_FindBlock_ReturnsInvalid()
-{
-  printf("--- Test_DataStrategy_FindBlock_ReturnsInvalid ---\n");
+TEST_CASE("MemStrategy – Data Strategy Find Block Returns Invalid", "[MemStrategy]") {
   void*      pBuf  = malloc(kCapacity);
   MemZone_t* pZone = Z_Init((MemZone_t*)pBuf, kCapacity, PU_STATIC, "FB_DATA");
 
   void* pData = Z_Malloc(pZone, 64, PU_STATIC, nullptr);
-  ASSERT_NOT_NULL(pData);
+  REQUIRE(pData != nullptr);
   MemBlock_t* pBlock = GetBlockHeader(pData);
-  ASSERT_EQ(pBlock->type, (uint32_t)TYPE_DATA);
+  REQUIRE(pBlock->type == (uint32_t)TYPE_DATA);
 
   const MemBlock_t* pFound = MEM_STRATEGY(pBlock).FindBlock(pBlock, name_from_cstr("anything"));
-  ASSERT(!Block_IsValid(pFound)); // kInvalidBlock, not NULL
-  ASSERT(pFound == &kInvalidBlock);
+  REQUIRE_FALSE(Block_IsValid(pFound)); // kInvalidBlock, not NULL
+  REQUIRE(pFound == &kInvalidBlock);
 
   free(pBuf);
-  printf("[PASS] Test_DataStrategy_FindBlock_ReturnsInvalid\n\n");
 }
 
 /* =========================================================================
  * Test_NullStrategy_FindBlock_ReturnsInvalid
  * NullStrategy has no children — FindBlock must return &kInvalidBlock.
  * ========================================================================= */
-void Test_NullStrategy_FindBlock_ReturnsInvalid()
-{
-  printf("--- Test_NullStrategy_FindBlock_ReturnsInvalid ---\n");
+TEST_CASE("MemStrategy – Null Strategy Find Block Returns Invalid", "[MemStrategy]") {
   MemBlock_t block = {};
   block.magic = CHECK_SUM;
   block.type  = TYPE_NONE;
 
   const MemBlock_t* pFound = MEM_STRATEGY(&block).FindBlock(&block, name_from_cstr("x"));
-  ASSERT(!Block_IsValid(pFound));
-  ASSERT(pFound == &kInvalidBlock);
-
-  printf("[PASS] Test_NullStrategy_FindBlock_ReturnsInvalid\n\n");
-}
-
-/* =========================================================================
- * main
- * ========================================================================= */
-int main()
-{
-  Test_TableWiring();
-  Test_MacroDispatch();
-  Test_DataStrategy_Check();
-  Test_DataStrategy_Remap();
-  Test_DataStrategy_Purge();
-  Test_StackStrategy_Init_Check();
-  Test_GetBlockName();
-  Test_ZoneStrategy_Init();
-  Test_ZoneStrategy_Remap_Check();
-  Test_ZoneStrategy_GetAllocator();
-  Test_DataStrategy_GetAllocator_IsNullObject();
-  Test_NullStrategy_GetAllocator_IsNullObject();
-  Test_DataStrategy_FindBlock_ReturnsInvalid();
-  Test_NullStrategy_FindBlock_ReturnsInvalid();
-
-  printf("--- ALL MEM STRATEGY TESTS PASSED ---\n");
-  return 0;
+  REQUIRE_FALSE(Block_IsValid(pFound));
+  REQUIRE(pFound == &kInvalidBlock);
 }
