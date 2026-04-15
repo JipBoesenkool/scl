@@ -804,7 +804,7 @@ TEST_CASE("Zone – Strategy Get Allocator Zone", "[Zone]") {
   MakeSubZone(pParent, 1024 * 16, PU_LEVEL, "SUB_GA", &pSub);
   REQUIRE(pSub != nullptr);
 
-  MemBlock_t* pOuter = GetBlockHeader(pSub);
+  MemBlock_t* pOuter = Z_ZoneAsBlock(pSub);
   Allocator_t alloc = MEM_STRATEGY(pOuter).GetAllocator(pOuter);
   REQUIRE(alloc.pContext == pSub);
   REQUIRE(alloc.Malloc != nullptr);

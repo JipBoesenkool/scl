@@ -221,6 +221,7 @@ TEST_CASE("MemStrategy – Zone Strategy Remap and Check", "[MemStrategy]") {
   MemZone_t* pSub = NULL;
   void* pMem = Z_Malloc(pParent, 1024 * 4, PU_STATIC, &pSub);
   REQUIRE(pMem != nullptr);
+
   MemBlock_t* pBlkParent = GetBlockHeader(pMem);
   pBlkParent->type = TYPE_ZONE;
   MEM_STRATEGY(pBlkParent).Init(pBlkParent, 0, PU_STATIC, "SUB");
@@ -229,8 +230,8 @@ TEST_CASE("MemStrategy – Zone Strategy Remap and Check", "[MemStrategy]") {
   MemBlock_t* pBlk = Z_ZoneAsBlock(pSub);
   REQUIRE(pBlk->type == (uint32_t)TYPE_ZONE);
 
-  REQUIRE(MEM_STRATEGY(pBlkParent).Check(pBlkParent)); // valid sub-zone → true
-  MEM_STRATEGY(pBlkParent).Remap(pBlkParent);         // must not crash on a valid zone
+  REQUIRE(MEM_STRATEGY(pBlk).Check(pBlk)); // valid sub-zone → true
+  MEM_STRATEGY(pBlk).Remap(pBlk);         // must not crash on a valid zone
 
   free(pBuf);
 }
@@ -253,7 +254,7 @@ TEST_CASE("MemStrategy – Zone Strategy Get Allocator", "[MemStrategy]") {
   REQUIRE(pSub != nullptr);
 
   MemBlock_t* pBlk  = Z_ZoneAsBlock(pSub);
-  Allocator_t alloc = MEM_STRATEGY(pBlkGA).GetAllocator(pBlkGA);
+  Allocator_t alloc = MEM_STRATEGY(pBlk).GetAllocator(pBlk);
   REQUIRE(alloc.pContext == pSub);
   REQUIRE(alloc.Malloc != nullptr);
 
